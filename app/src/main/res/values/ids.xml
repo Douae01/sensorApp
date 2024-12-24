@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="captured_image" type="id" />
+    <item name="light_sensor" type="id" />
+    <item name="sound_meter" type="id" />
+</resources>
