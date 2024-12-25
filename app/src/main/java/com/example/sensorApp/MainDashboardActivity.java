@@ -26,6 +26,14 @@ import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import android.widget.LinearLayout;
 import java.util.ArrayList;
+import android.app.Activity;
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.RecognitionListener;
+import android.widget.Button;
+import android.widget.TextView;
+
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -75,7 +83,7 @@ public class MainDashboardActivity extends AppCompatActivity {
         // Set up button listeners
         findViewById(R.id.step_counter).setOnClickListener(v -> showAccelerometerModal());
         findViewById(R.id.camera).setOnClickListener(v -> openCamera());
-        findViewById(R.id.sound_meter).setOnClickListener(v -> showSoundLevelModal());
+        findViewById(R.id.audio_button).setOnClickListener(v -> showAudioTranscription());
 
         // Request camera and microphone permissions if not already granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -84,6 +92,7 @@ public class MainDashboardActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 102);
         }
+
     }
 
     // Accelerometer Modal
@@ -123,20 +132,21 @@ public class MainDashboardActivity extends AppCompatActivity {
     }
 
     private void startAccelerometerUpdates(TextView displayView, LineChart chart) {
+        // Declare data sets at class level if needed for persistence
         ArrayList<Entry> xValues = new ArrayList<>();
         ArrayList<Entry> yValues = new ArrayList<>();
         ArrayList<Entry> zValues = new ArrayList<>();
+
         LineDataSet xDataSet = new LineDataSet(xValues, "X-Axis");
         LineDataSet yDataSet = new LineDataSet(yValues, "Y-Axis");
         LineDataSet zDataSet = new LineDataSet(zValues, "Z-Axis");
 
-        xDataSet.setColor(getResources().getColor(android.R.color.holo_red_light));
-        yDataSet.setColor(getResources().getColor(android.R.color.holo_green_light));
-        zDataSet.setColor(getResources().getColor(android.R.color.holo_blue_light));
+        xDataSet.setColor(ContextCompat.getColor(this, android.R.color.holo_red_light));
+        yDataSet.setColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
+        zDataSet.setColor(ContextCompat.getColor(this, android.R.color.holo_blue_light));
 
         LineData lineData = new LineData(xDataSet, yDataSet, zDataSet);
         chart.setData(lineData);
-
 
         accelerometerListener = new SensorEventListener() {
             @Override
@@ -145,31 +155,30 @@ public class MainDashboardActivity extends AppCompatActivity {
                 float y = event.values[1];
                 float z = event.values[2];
                 displayView.setText(String.format("X: %.2f, Y: %.2f, Z: %.2f", x, y, z));
-                 // Add data points to the graph
-            	xValues.add(new Entry(timeIndex, x));
-            	yValues.add(new Entry(timeIndex, y));
-            	zValues.add(new Entry(timeIndex, z));
-            	lineData.notifyDataChanged();
-            	chart.notifyDataSetChanged();
-            	chart.invalidate();
 
-            	timeIndex++;
+                // Add data points to the graph
+                xValues.add(new Entry(timeIndex, x));
+                yValues.add(new Entry(timeIndex, y));
+                zValues.add(new Entry(timeIndex, z));
+
+                // Notify datasets and chart of changes
+                xDataSet.notifyDataSetChanged();
+                yDataSet.notifyDataSetChanged();
+                zDataSet.notifyDataSetChanged();
+                lineData.notifyDataChanged();
+                chart.notifyDataSetChanged();
+                chart.invalidate();
+
+                timeIndex++;
             }
 
             @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-            }
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {}
         };
 
         sensorManager.registerListener(accelerometerListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-
-        // Update display every 500ms
-        accelerometerUpdater = () -> {
-            sensorManager.registerListener(accelerometerListener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-            handler.postDelayed(accelerometerUpdater, 500);
-        };
-        handler.post(accelerometerUpdater);
     }
+
 
     private void stopAccelerometerUpdates() {
         if (accelerometerListener != null) {
@@ -213,82 +222,86 @@ public class MainDashboardActivity extends AppCompatActivity {
         builder.show();
     }
 
-    // Sound Level Modal (Niveau sonore)
-    private void showSoundLevelModal() {
-        final TextView soundLevelData = new TextView(this);
-        soundLevelData.setTextSize(16);
+    // Audio Transcription
+    private void showAudioTranscription() {
+        final TextView transcriptionData = new TextView(this);
+        transcriptionData.setTextSize(16);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Niveau sonore")
-                .setView(soundLevelData)
-                .setPositiveButton("Close", (dialog, which) -> stopSoundLevelUpdates())
+        builder.setTitle("Audio Transcription")
+                .setView(transcriptionData)
+                .setPositiveButton("Close", (dialog, which) -> stopTranscription())
                 .show();
 
-        startSoundLevelUpdates(soundLevelData);
+        startTranscription(transcriptionData);
     }
 
-    private AudioRecord audioRecord;
-    private boolean isSoundLevelUpdating = false;
-    private static final int SAMPLE_RATE = 44100;
+    private SpeechRecognizer speechRecognizer;
 
-    private void startSoundLevelUpdates(TextView displayView) {
-        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+    private void startTranscription(TextView displayView) {
+        if (speechRecognizer == null) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            Intent recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            recognizerIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr");
 
-        if (audioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
-            Toast.makeText(this, "Unable to initialize microphone", Toast.LENGTH_SHORT).show();
-            return;
-        }
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override
+                public void onReadyForSpeech(Bundle params) {
+                    displayView.setText("Ready to listen (French speakers)...");
+                }
 
-        audioRecord.startRecording();
-        isSoundLevelUpdating = true;
+                @Override
+                public void onBeginningOfSpeech() {
+                    displayView.setText("Listening in progress...");
+                }
 
-        new Thread(() -> {
-            short[] buffer = new short[bufferSize];
-            while (isSoundLevelUpdating) {
-                int read = audioRecord.read(buffer, 0, buffer.length);
-                if (read > 0) {
-                    double sum = 0;
-                    for (short sample : buffer) {
-                        sum += sample * sample;
+                @Override
+                public void onRmsChanged(float rmsdB) {
+                    // Vous pouvez afficher un indicateur de niveau sonore si nécessaire
+                }
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {
+                }
+
+                @Override
+                public void onEndOfSpeech() {
+                    displayView.setText("Transcription processing...");
+                }
+
+                @Override
+                public void onError(int error) {
+                    displayView.setText("Error during voice recognition.");
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    if (matches != null && !matches.isEmpty()) {
+                        displayView.setText(matches.get(0)); // Afficher la transcription
+                    } else {
+                        displayView.setText("No result detected.");
                     }
-                    double rms = Math.sqrt(sum / read);
-                    final double soundLevelDb = 20 * Math.log10(rms);
-
-                    runOnUiThread(() -> displayView.setText(String.format("Niveau sonore: %.2f dB", soundLevelDb)));
                 }
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
 
-    private void stopSoundLevelUpdates() {
-        isSoundLevelUpdating = false;
-        if (audioRecord != null) {
-            audioRecord.stop();
-            audioRecord.release();
-            audioRecord = null;
+                @Override
+                public void onPartialResults(Bundle partialResults) {
+                }
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {
+                }
+            });
         }
+        speechRecognizer.startListening(new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH));
     }
 
-    private void updateSoundLevel(TextView displayView) {
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (isRecording && mediaRecorder != null) {
-                    int maxAmplitude = mediaRecorder.getMaxAmplitude();
-                    double soundLevelDb = 20 * Math.log10((double) Math.max(maxAmplitude, 1));
-                    displayView.setText(String.format("Niveau sonore: %.2f dB", soundLevelDb));
-                }
-                handler.postDelayed(this, 500);
-            }
-        }, 500);
+    private void stopTranscription() {
+        if (speechRecognizer != null) {
+            speechRecognizer.stopListening();
+            speechRecognizer.destroy();
+            speechRecognizer = null;
+        }
     }
 }

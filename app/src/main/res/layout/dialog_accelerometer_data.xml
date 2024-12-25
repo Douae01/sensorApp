@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
+    android:padding="16dp">
 
     <!-- Accelerometer Data Display -->
     <TextView
@@ -13,14 +13,16 @@
         android:layout_height="wrap_content"
         android:text="X: 0.0, Y: 0.0, Z: 0.0"
         android:textSize="16sp"
-        android:textColor="@color/black" />
-        
+        android:textColor="@color/black"
+        android:layout_gravity="center_horizontal" />
+
     <!-- Graph View -->
     <com.github.mikephil.charting.charts.LineChart
         android:id="@+id/accelerometer_chart"
         android:layout_width="match_parent"
         android:layout_height="300dp"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        android:background="@android:color/white" />
 
     <!-- Close Button -->
     <Button
@@ -30,5 +32,6 @@
         android:text="Close"
         android:layout_marginTop="16dp"
         android:backgroundTint="@color/blue"
-        android:textColor="@color/white" />
+        android:textColor="@color/white"
+        android:layout_gravity="center_horizontal" />
 </LinearLayout>
