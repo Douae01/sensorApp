@@ -27,6 +27,7 @@ import android.speech.RecognitionListener;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.WindowDecorActionBar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -47,8 +48,6 @@ public class MainDashboardActivity extends AppCompatActivity {
     private Runnable accelerometerUpdater;
 
     private MediaRecorder mediaRecorder;
-    private boolean isRecording = false;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -99,7 +98,7 @@ public class MainDashboardActivity extends AppCompatActivity {
 
         final TextView stepCountView = new TextView(this);
         stepCountView.setTextSize(16);
-        stepCountView.setText("Steps: 0");
+        stepCountView.setPadding(4, 0, 0, 16);
         modalLayout.addView(stepCountView);
 
         // Display step Counter in a dialog
@@ -112,7 +111,7 @@ public class MainDashboardActivity extends AppCompatActivity {
         startAccelerometerUpdates(accelerometerData, stepCountView);
     }
 
-    private void startAccelerometerUpdates(TextView displayView, TextView chart) {
+    private void startAccelerometerUpdates(TextView displayView, TextView stepDisplayView) {
         accelerometerListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
@@ -135,7 +134,7 @@ public class MainDashboardActivity extends AppCompatActivity {
                         lastStepTime = currentTime;
 
                         // Update step count display
-                        displayView.setText("Steps: " + stepCount);
+                        stepDisplayView.setText("Steps: " + stepCount);
                     }
                 }
             }
