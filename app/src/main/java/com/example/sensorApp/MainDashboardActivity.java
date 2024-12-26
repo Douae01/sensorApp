@@ -9,8 +9,6 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.media.AudioFormat;
-import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
@@ -18,21 +16,12 @@ import android.provider.MediaStore;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.components.YAxis;
-import com.github.mikephil.charting.data.Entry;
-import com.github.mikephil.charting.data.LineData;
-import com.github.mikephil.charting.data.LineDataSet;
 import android.widget.LinearLayout;
 import java.util.ArrayList;
-import android.app.Activity;
-import android.content.Intent;
+
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.RecognitionListener;
-import android.widget.Button;
-import android.widget.TextView;
 
 
 import androidx.annotation.Nullable;
@@ -47,11 +36,13 @@ public class MainDashboardActivity extends AppCompatActivity {
     private static final String KEY_USER_EMAIL = "userEmail";
     private static final int REQUEST_IMAGE_CAPTURE = 1;
 
-    private int timeIndex = 0; // Declare at the class level
-
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private SensorEventListener accelerometerListener;
+    private int stepCount = 0;
+    private long lastStepTime = 0;
+    private static final float STEP_THRESHOLD = 1.5f; // Step detection threshold
+    private static final long STEP_TIME_GAP = 200;    // Minimum time between steps in ms
     private Handler handler = new Handler();
     private Runnable accelerometerUpdater;
 
@@ -97,79 +88,56 @@ public class MainDashboardActivity extends AppCompatActivity {
 
     // Accelerometer Modal
     private void showAccelerometerModal() {
-    	LinearLayout modalLayout = new LinearLayout(this);
+        LinearLayout modalLayout = new LinearLayout(this);
         modalLayout.setOrientation(LinearLayout.VERTICAL);
         modalLayout.setPadding(16, 16, 16, 16);
 
         final TextView accelerometerData = new TextView(this);
         accelerometerData.setTextSize(16);
-    	accelerometerData.setPadding(0, 0, 0, 16);
-    	modalLayout.addView(accelerometerData);
+        accelerometerData.setPadding(0, 0, 0, 16);
+        modalLayout.addView(accelerometerData);
 
-    	LineChart accelerometerChart = new LineChart(this);
-    	modalLayout.addView(accelerometerChart);
-    	setupChart(accelerometerChart); // Configure the chart
+        final TextView stepCountView = new TextView(this);
+        stepCountView.setTextSize(16);
+        stepCountView.setText("Steps: 0");
+        modalLayout.addView(stepCountView);
 
-        // Display accelerometer data in a dialog
+        // Display step Counter in a dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Accelerometer data")
+        builder.setTitle("Step Counter")
                 .setView(modalLayout)
                 .setPositiveButton("Close", (dialog, which) -> stopAccelerometerUpdates())
                 .show();
 
-        startAccelerometerUpdates(accelerometerData, accelerometerChart);
+        startAccelerometerUpdates(accelerometerData, stepCountView);
     }
 
-    private void setupChart(LineChart chart) {
-    	chart.getDescription().setEnabled(false); // Remove default description
-    	XAxis xAxis = chart.getXAxis();
-    	xAxis.setPosition(XAxis.XAxisPosition.BOTTOM); // Place X-axis at the bottom
-    	xAxis.setGranularity(1f); // Set minimum interval
-    	YAxis leftAxis = chart.getAxisLeft();
-    	leftAxis.setAxisMinimum(-20f); // Set Y-axis range
-    	leftAxis.setAxisMaximum(20f);
-    	chart.getAxisRight().setEnabled(false); // Disable right Y-axis
-    }
-
-    private void startAccelerometerUpdates(TextView displayView, LineChart chart) {
-        // Declare data sets at class level if needed for persistence
-        ArrayList<Entry> xValues = new ArrayList<>();
-        ArrayList<Entry> yValues = new ArrayList<>();
-        ArrayList<Entry> zValues = new ArrayList<>();
-
-        LineDataSet xDataSet = new LineDataSet(xValues, "X-Axis");
-        LineDataSet yDataSet = new LineDataSet(yValues, "Y-Axis");
-        LineDataSet zDataSet = new LineDataSet(zValues, "Z-Axis");
-
-        xDataSet.setColor(ContextCompat.getColor(this, android.R.color.holo_red_light));
-        yDataSet.setColor(ContextCompat.getColor(this, android.R.color.holo_green_light));
-        zDataSet.setColor(ContextCompat.getColor(this, android.R.color.holo_blue_light));
-
-        LineData lineData = new LineData(xDataSet, yDataSet, zDataSet);
-        chart.setData(lineData);
-
+    private void startAccelerometerUpdates(TextView displayView, TextView chart) {
         accelerometerListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
                 float x = event.values[0];
                 float y = event.values[1];
                 float z = event.values[2];
+
+                // Calculate magnitude of acceleration
+                float magnitude = (float) Math.sqrt(x * x + y * y + z * z);
+                float adjustedMagnitude = magnitude - SensorManager.GRAVITY_EARTH;
+
+                // Display raw accelerometer data
                 displayView.setText(String.format("X: %.2f, Y: %.2f, Z: %.2f", x, y, z));
 
-                // Add data points to the graph
-                xValues.add(new Entry(timeIndex, x));
-                yValues.add(new Entry(timeIndex, y));
-                zValues.add(new Entry(timeIndex, z));
+                // Step detection logic
+                if (adjustedMagnitude > STEP_THRESHOLD) {
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastStepTime > STEP_TIME_GAP) {
+                        stepCount++;
+                        lastStepTime = currentTime;
 
-                // Notify datasets and chart of changes
-                xDataSet.notifyDataSetChanged();
-                yDataSet.notifyDataSetChanged();
-                zDataSet.notifyDataSetChanged();
-                lineData.notifyDataChanged();
-                chart.notifyDataSetChanged();
-                chart.invalidate();
-
-                timeIndex++;
+                        // Update step count display
+                        displayView.setText("Steps: " + stepCount);
+                    }
+                }
             }
 
             @Override
