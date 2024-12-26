@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center"
+    android:background="@color/white"
+    tools:context=".HomeFragment">
+
+    <ImageView
+        android:id="@+id/homepage_image"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="18dp"
+        android:contentDescription="Enib Image"
+        android:src="@drawable/tachnology_image" />
+
+    <TextView
+        android:id="@+id/sensor_app_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Welcome to Our Sensor Application!&#10;&#10;"
+        android:textSize="16sp"
+        android:textColor="@color/black"
+        android:layout_marginTop="16dp" />
+
+    <TextView
+        android:id="@+id/sensor_app_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="The Sensor Application is a versatile mobile application designed to leverage the power of your device's sensors for an interactive and engaging user experience. This app utilizes the accelerometer to track your steps, providing real-time feedback on your physical activity. With a user-friendly interface, you can easily navigate through various features, including a camera function that allows you to capture images directly from the app, and an audio transcription feature that converts spoken words into text.&#10;&#10;"
+        android:textColor="@color/black"
+        android:textSize="16sp" />
+
+</LinearLayout>

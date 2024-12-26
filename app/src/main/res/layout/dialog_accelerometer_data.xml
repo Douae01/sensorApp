@@ -11,18 +11,18 @@
         android:id="@+id/accelerometer_data"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="X: 0.0, Y: 0.0, Z: 0.0"
         android:textSize="16sp"
         android:textColor="@color/black"
         android:layout_gravity="center_horizontal" />
 
-    <!-- Graph View -->
-    <com.github.mikephil.charting.charts.LineChart
-        android:id="@+id/accelerometer_chart"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:layout_marginTop="16dp"
-        android:background="@android:color/white" />
+        <!-- Step Counter Diplay -->
+    <ImageView
+        android:id="@+id/step_counter_image"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:src="@drawable/steps"
+        android:visibility="visible" />
 
     <!-- Close Button -->
     <Button

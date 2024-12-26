@@ -13,6 +13,8 @@ import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -27,9 +29,14 @@ import android.speech.RecognitionListener;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.app.WindowDecorActionBar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import androidx.core.view.GravityCompat;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.widget.Toolbar;
+import androidx.drawerlayout.widget.DrawerLayout;
+import com.google.android.material.navigation.NavigationView;
 
 public class MainDashboardActivity extends AppCompatActivity {
 
@@ -46,34 +53,84 @@ public class MainDashboardActivity extends AppCompatActivity {
     private static final long STEP_TIME_GAP = 200;    // Minimum time between steps in ms
     private Handler handler = new Handler();
     private Runnable accelerometerUpdater;
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
 
-    private MediaRecorder mediaRecorder;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
+        // Setup Toolbar
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        // Initialize Drawer and Navigation View
+        drawerLayout = findViewById(R.id.drawer_layout);
+        navigationView = findViewById(R.id.navigation_view);
+        Menu menu = navigationView.getMenu();
+        MenuItem navHomeItem = menu.findItem(R.id.nav_home);
+        MenuItem navAccelItem = menu.findItem(R.id.nav_accelerometer);
+        MenuItem navCamItem = menu.findItem(R.id.nav_camera);
+        MenuItem navAudItem = menu.findItem(R.id.nav_audio);
+
+        // Setup Drawer Toggle
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawerLayout, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawerLayout.addDrawerListener(toggle);
+        toggle.syncState();
+
+        // Load the HomeFragment by default
+        if (savedInstanceState == null) {
+            navHomeItem.setChecked(true); // Set the Home item as checked
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new HomeFragment())
+                    .commit();
+        }
+
         // Load username from SharedPreferences
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String email = prefs.getString(KEY_USER_EMAIL, "Username");
-        TextView usernameDisplay = findViewById(R.id.username_display);
+        TextView usernameDisplay = navigationView.getHeaderView(0).findViewById(R.id.sidebar_username);
         if (email.contains("@")) {
             String username = email.split("@")[0];
             usernameDisplay.setText(username);
         }
 
         // Profile icon click listener
-        ImageView profileIcon = findViewById(R.id.profile_icon);
+        ImageView profileIcon = navigationView.getHeaderView(0).findViewById(R.id.profile_icon);
         profileIcon.setOnClickListener(v -> startActivity(new Intent(MainDashboardActivity.this, EditProfileActivity.class)));
 
         // Initialize sensors
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
-        // Set up button listeners
-        findViewById(R.id.step_counter).setOnClickListener(v -> showAccelerometerModal());
-        findViewById(R.id.camera).setOnClickListener(v -> openCamera());
-        findViewById(R.id.audio_button).setOnClickListener(v -> showAudioTranscription());
+        // Handle Navigation Item Clicks
+        navigationView.setNavigationItemSelectedListener(item -> {
+            if(item==navHomeItem) {
+                Toast.makeText(MainDashboardActivity.this, "Home selected", Toast.LENGTH_SHORT).show();
+                // Load HomeFragment when home item is selected
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, new HomeFragment())
+                        .commit();
+            } else if(item==navAccelItem) {
+                showAccelerometerModal();
+                // Load HomeFragment when home item is selected
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, new BlankFragment())
+                        .commit();
+            }else if(item==navCamItem) {
+                openCamera();
+            }else if(item==navAudItem) {
+                showAudioTranscription();
+                // Load HomeFragment when home item is selected
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, new BlankFragment())
+                        .commit();
+            }
+            drawerLayout.closeDrawers();
+            return true;
+        });
 
         // Request camera and microphone permissions if not already granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -82,7 +139,15 @@ public class MainDashboardActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 102);
         }
+    }
 
+    @Override
+    public void onBackPressed() {
+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            drawerLayout.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
+        }
     }
 
     // Accelerometer Modal
@@ -95,6 +160,14 @@ public class MainDashboardActivity extends AppCompatActivity {
         accelerometerData.setTextSize(16);
         accelerometerData.setPadding(0, 0, 0, 16);
         modalLayout.addView(accelerometerData);
+
+        // Créez et ajoutez l'ImageView pour le compteur de pas
+        ImageView stepCounterImage = new ImageView(this);
+        stepCounterImage.setImageResource(R.drawable.steps); // Assurez-vous que l'image existe
+        stepCounterImage.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        modalLayout.addView(stepCounterImage);
 
         final TextView stepCountView = new TextView(this);
         stepCountView.setTextSize(16);
@@ -124,7 +197,7 @@ public class MainDashboardActivity extends AppCompatActivity {
                 float adjustedMagnitude = magnitude - SensorManager.GRAVITY_EARTH;
 
                 // Display raw accelerometer data
-                displayView.setText(String.format("X: %.2f, Y: %.2f, Z: %.2f", x, y, z));
+                //displayView.setText(String.format("X: %.2f, Y: %.2f, Z: %.2f", x, y, z));
 
                 // Step detection logic
                 if (adjustedMagnitude > STEP_THRESHOLD) {
@@ -178,7 +251,7 @@ public class MainDashboardActivity extends AppCompatActivity {
 
     private void showCapturedImageModal(Bitmap imageBitmap) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Image Captured");
+        builder.setTitle("Captured Image");
 
         ImageView imageView = new ImageView(this);
         imageView.setImageBitmap(imageBitmap);

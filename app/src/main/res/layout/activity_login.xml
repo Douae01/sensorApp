@@ -105,12 +105,4 @@
         android:backgroundTint="@color/white"
         android:textColor="@color/blue"
         android:gravity="center" />
-
-
-
-
-
-
-
-
 </LinearLayout>
